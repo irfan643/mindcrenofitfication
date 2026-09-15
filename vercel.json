@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "regions": ["iad1"],
+  "functions": {
+    "api/notify.ts": {
+      "memory": 256,
+      "maxDuration": 15
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "mindcare-notify-api",
+  "private": true,
+  "description": "MindCare FCM push API for Vercel (Spark-friendly; no Cloud Functions)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@vercel/node": "^5.1.8",
+    "typescript": "^5.9.2"
+  }
+}
