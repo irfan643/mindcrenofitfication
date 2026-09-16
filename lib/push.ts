@@ -1,7 +1,7 @@
 import type * as admin from "firebase-admin";
 import { getAdmin } from "./firebase";
 
-export type NotifyEvent = "Approved" | "Completed" | "Rated"|"Rejected";
+export type NotifyEvent = "Approved" | "Completed" | "Rated"| "Rejected";
 
 type UserLike = {
   fcmToken?: string;
