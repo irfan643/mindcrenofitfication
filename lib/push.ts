@@ -1,6 +1,11 @@
 import { getAdmin } from "./firebase";
 
-export type NotifyEvent = "Approved" | "Completed" | "Rated" | "Rejected";
+export type NotifyEvent =
+  | "Booked"
+  | "Approved"
+  | "Completed"
+  | "Rated"
+  | "Rejected";
 
 type UserLike = {
   fcmToken?: string;
@@ -13,6 +18,8 @@ type AppointmentLike = {
   doctorId?: string;
   status?: string;
   statusMessage?: string | null;
+  dateISO?: string;
+  time?: string;
 };
 
 export type PushResult =
@@ -27,6 +34,12 @@ async function loadUser(uid: string): Promise<UserLike | null> {
   const snap = await getAdmin().firestore().doc(`users/${uid}`).get();
   if (!snap.exists) return null;
   return snap.data() as UserLike;
+}
+
+async function displayName(uid: string, fallback: string): Promise<string> {
+  const user = await loadUser(uid);
+  const name = user?.name?.trim();
+  return name || fallback;
 }
 
 async function sendToUser(
@@ -99,15 +112,37 @@ export async function sendNotifyForEvent(input: {
     statusMessage,
   } = input;
 
+  const [patientName, doctorName] = await Promise.all([
+    displayName(patientId, "A patient"),
+    displayName(doctorId, "your doctor"),
+  ]);
+
+  // Patient booked → notify DOCTOR
+  if (event === "Booked") {
+    return sendToUser(doctorId, {
+      title: "New appointment request",
+      body: `${patientName} booked an appointment with you. Open the app to review.`,
+      channelId: "appointment-updates",
+      data: {
+        type: "appointment_booked",
+        appointmentId,
+        patientId,
+        doctorId,
+        patientName,
+      },
+    });
+  }
+
   if (event === "Approved") {
     return sendToUser(patientId, {
       title: "Appointment approved",
-      body: "Your appointment was approved. Open the app for ticket details.",
+      body: `Dr. ${doctorName} approved your appointment. Open the app for ticket details.`,
       channelId: "appointment-updates",
       data: {
         type: "appointment_approved",
         appointmentId,
         doctorId,
+        doctorName,
       },
     });
   }
@@ -117,12 +152,13 @@ export async function sendNotifyForEvent(input: {
       (reason || statusMessage || "").trim() || DEFAULT_REJECT_REASON;
     return sendToUser(patientId, {
       title: "Appointment rejected",
-      body: rejectReason,
+      body: `Dr. ${doctorName}: ${rejectReason}`,
       channelId: "appointment-updates",
       data: {
         type: "appointment_rejected",
         appointmentId,
         doctorId,
+        doctorName,
         reason: rejectReason,
       },
     });
@@ -131,25 +167,28 @@ export async function sendNotifyForEvent(input: {
   if (event === "Completed") {
     return sendToUser(patientId, {
       title: "How was your visit?",
-      body: "Tap to rate your doctor and leave a short review.",
+      body: `Your visit with Dr. ${doctorName} is marked completed. Tap to leave a review.`,
       channelId: "review-reminders",
       data: {
         type: "review_request",
         appointmentId,
         doctorId,
+        doctorName,
       },
     });
   }
 
+  // Rated → doctor
   return sendToUser(doctorId, {
     title: "New patient review",
-    body: "A patient rated your recent visit. Open reviews to see it.",
+    body: `${patientName} rated your recent visit. Open reviews to see it.`,
     channelId: "appointment-updates",
     data: {
       type: "doctor_rated",
       appointmentId,
       patientId,
       doctorId,
+      patientName,
     },
   });
 }
