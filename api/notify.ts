@@ -10,6 +10,7 @@ const ALLOWED_EVENTS = new Set<NotifyEvent>([
   "Approved",
   "Completed",
   "Rated",
+  "Rejected"
 ]);
 
 function setCors(res: VercelResponse) {
