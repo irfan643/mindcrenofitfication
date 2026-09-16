@@ -73,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!ALLOWED_EVENTS.has(event)) {
       return res.status(400).json({
         ok: false,
-        error: 'event must be "Approved", "Completed", or "Rated"',
+          error: 'event must be "Approved", "Completed", "Rated", or "Rejected"',
       });
     }
     if (!appointmentId) {
@@ -99,7 +99,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // When using Firebase ID token, enforce role on the appointment.
     if (auth.via === "id_token" && auth.uid) {
-      if (event === "Approved" || event === "Completed") {
+     if (event === "Approved" || event === "Completed" || event === "Rejected") {
+  if (auth.uid !== doctorId) {
+    return res.status(403).json({
+      ok: false,
+      error: "Only the appointment doctor can trigger this notify.",
+    });
+  }
+}
+      {
         if (auth.uid !== doctorId) {
           return res.status(403).json({
             ok: false,
