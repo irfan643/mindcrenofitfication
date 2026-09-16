@@ -1,7 +1,7 @@
 import type * as admin from "firebase-admin";
 import { getAdmin } from "./firebase";
 
-export type NotifyEvent = "Approved" | "Completed" | "Rated";
+export type NotifyEvent = "Approved" | "Completed" | "Rated"|"Rejected";
 
 type UserLike = {
   fcmToken?: string;
@@ -112,6 +112,22 @@ export async function sendNotifyForEvent(input: {
       },
     });
   }
+  if (event === "Rejected") {
+  const rejectReason =
+    (reason || statusMessage || "").trim() ||
+    "Your appointment was rejected by the doctor.";
+  return sendToUser(patientId, {
+    title: "Appointment rejected",
+    body: rejectReason,
+    channelId: "appointment-updates",
+    data: {
+      type: "appointment_rejected",
+      appointmentId,
+      doctorId,
+      reason: rejectReason,
+    },
+  });
+}
 
   if (event === "Completed") {
     return sendToUser(patientId, {
