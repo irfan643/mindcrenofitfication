@@ -13,6 +13,8 @@ type AppointmentLike = {
   patientId?: string;
   doctorId?: string;
   status?: string;
+ statusMessage?: string | null;
+
 };
 
 export type PushResult =
@@ -112,21 +114,42 @@ export async function sendNotifyForEvent(input: {
       },
     });
   }
+export async function sendNotifyForEvent(input: {
+  event: NotifyEvent;
+  appointmentId: string;
+  patientId: string;
+  doctorId: string;
+  reason?: string;
+  statusMessage?: string | null;
+}): Promise<PushResult> {
+  const {
+    event,
+    appointmentId,
+    patientId,
+    doctorId,
+    reason,
+    statusMessage,
+  } = input;
+
+  
   if (event === "Rejected") {
-  const rejectReason =
-    (reason || statusMessage || "").trim() ||
-    "Your appointment was rejected by the doctor.";
-  return sendToUser(patientId, {
-    title: "Appointment rejected",
-    body: rejectReason,
-    channelId: "appointment-updates",
-    data: {
-      type: "appointment_rejected",
-      appointmentId,
-      doctorId,
-      reason: rejectReason,
-    },
-  });
+    const rejectReason =
+      (reason || statusMessage || "").trim() ||
+      "Your appointment was rejected by the doctor.";
+    return sendToUser(patientId, {
+      title: "Appointment rejected",
+      body: rejectReason,
+      channelId: "appointment-updates",
+      data: {
+        type: "appointment_rejected",
+        appointmentId,
+        doctorId,
+        reason: rejectReason,
+      },
+    });
+  }
+
+ 
 }
 
   if (event === "Completed") {
