@@ -1,7 +1,6 @@
-import type * as admin from "firebase-admin";
 import { getAdmin } from "./firebase";
 
-export type NotifyEvent = "Approved" | "Completed" | "Rated"| "Rejected";
+export type NotifyEvent = "Approved" | "Completed" | "Rated" | "Rejected";
 
 type UserLike = {
   fcmToken?: string;
@@ -13,14 +12,16 @@ type AppointmentLike = {
   patientId?: string;
   doctorId?: string;
   status?: string;
- statusMessage?: string | null;
-
+  statusMessage?: string | null;
 };
 
 export type PushResult =
   | { ok: true; messageId: string }
   | { ok: true; skipped: string }
   | { ok: false; error: string };
+
+const DEFAULT_REJECT_REASON =
+  "Your appointment was rejected by the doctor.";
 
 async function loadUser(uid: string): Promise<UserLike | null> {
   const snap = await getAdmin().firestore().doc(`users/${uid}`).get();
@@ -38,16 +39,12 @@ async function sendToUser(
   },
 ): Promise<PushResult> {
   const user = await loadUser(uid);
-  if (!user) {
-    return { ok: true, skipped: "user_not_found" };
-  }
+  if (!user) return { ok: true, skipped: "user_not_found" };
   if (user.notificationsEnabled === false) {
     return { ok: true, skipped: "notifications_disabled" };
   }
   const token = user.fcmToken?.trim();
-  if (!token) {
-    return { ok: true, skipped: "no_fcm_token" };
-  }
+  if (!token) return { ok: true, skipped: "no_fcm_token" };
 
   try {
     const messageId = await getAdmin().messaging().send({
@@ -59,23 +56,18 @@ async function sendToUser(
       data: payload.data,
       android: {
         priority: "high",
-        notification: {
-          channelId: payload.channelId,
-        },
+        notification: { channelId: payload.channelId },
       },
       apns: {
-        payload: {
-          aps: {
-            sound: "default",
-          },
-        },
+        payload: { aps: { sound: "default" } },
       },
     });
     return { ok: true, messageId };
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "FCM send failed";
-    return { ok: false, error: message };
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "FCM send failed",
+    };
   }
 }
 
@@ -90,30 +82,6 @@ export async function getAppointment(
   return { id: snap.id, ...(snap.data() as AppointmentLike) };
 }
 
-/**
- * Approved / Completed → patient
- * Rated → doctor
- */
-export async function sendNotifyForEvent(input: {
-  event: NotifyEvent;
-  appointmentId: string;
-  patientId: string;
-  doctorId: string;
-}): Promise<PushResult> {
-  const { event, appointmentId, patientId, doctorId } = input;
-
-  if (event === "Approved") {
-    return sendToUser(patientId, {
-      title: "Appointment approved",
-      body: "Your appointment was approved. Open the app for ticket details.",
-      channelId: "appointment-updates",
-      data: {
-        type: "appointment_approved",
-        appointmentId,
-        doctorId,
-      },
-    });
-  }
 export async function sendNotifyForEvent(input: {
   event: NotifyEvent;
   appointmentId: string;
@@ -131,11 +99,22 @@ export async function sendNotifyForEvent(input: {
     statusMessage,
   } = input;
 
-  
+  if (event === "Approved") {
+    return sendToUser(patientId, {
+      title: "Appointment approved",
+      body: "Your appointment was approved. Open the app for ticket details.",
+      channelId: "appointment-updates",
+      data: {
+        type: "appointment_approved",
+        appointmentId,
+        doctorId,
+      },
+    });
+  }
+
   if (event === "Rejected") {
     const rejectReason =
-      (reason || statusMessage || "").trim() ||
-      "Your appointment was rejected by the doctor.";
+      (reason || statusMessage || "").trim() || DEFAULT_REJECT_REASON;
     return sendToUser(patientId, {
       title: "Appointment rejected",
       body: rejectReason,
@@ -148,9 +127,6 @@ export async function sendNotifyForEvent(input: {
       },
     });
   }
-
- 
-}
 
   if (event === "Completed") {
     return sendToUser(patientId, {
@@ -165,7 +141,6 @@ export async function sendNotifyForEvent(input: {
     });
   }
 
-  // Rated → notify doctor
   return sendToUser(doctorId, {
     title: "New patient review",
     body: "A patient rated your recent visit. Open reviews to see it.",
