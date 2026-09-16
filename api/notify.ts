@@ -10,7 +10,7 @@ const ALLOWED_EVENTS = new Set<NotifyEvent>([
   "Approved",
   "Completed",
   "Rated",
-  "Rejected"
+  "Rejected",
 ]);
 
 function setCors(res: VercelResponse) {
@@ -69,11 +69,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const event = String(body.event ?? "") as NotifyEvent;
     const appointmentId = String(body.appointmentId ?? "").trim();
+    const reasonOverride = String(body.reason ?? "").trim();
 
     if (!ALLOWED_EVENTS.has(event)) {
       return res.status(400).json({
         ok: false,
-          error: 'event must be "Approved", "Completed", "Rated", or "Rejected"',
+        error:
+          'event must be "Approved", "Completed", "Rated", or "Rejected"',
       });
     }
     if (!appointmentId) {
@@ -97,17 +99,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // When using Firebase ID token, enforce role on the appointment.
     if (auth.via === "id_token" && auth.uid) {
-     if (event === "Approved" || event === "Completed" || event === "Rejected") {
-  if (auth.uid !== doctorId) {
-    return res.status(403).json({
-      ok: false,
-      error: "Only the appointment doctor can trigger this notify.",
-    });
-  }
-}
-      {
+      if (
+        event === "Approved" ||
+        event === "Completed" ||
+        event === "Rejected"
+      ) {
         if (auth.uid !== doctorId) {
           return res.status(403).json({
             ok: false,
@@ -129,11 +126,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       appointmentId,
       patientId,
       doctorId,
+      reason: reasonOverride || undefined,
+      statusMessage: appointment.statusMessage,
     });
 
     if (!result.ok) {
-      // Soft-fail at HTTP layer so the app status update is not blocked if
-      // callers ignore the body — still return 200 with error details.
       return res.status(200).json({
         ok: false,
         softFail: true,
