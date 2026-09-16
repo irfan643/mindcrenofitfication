@@ -7,6 +7,7 @@ import {
 } from "../lib/push";
 
 const ALLOWED_EVENTS = new Set<NotifyEvent>([
+  "Booked",
   "Approved",
   "Completed",
   "Rated",
@@ -99,27 +100,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    if (auth.via === "id_token" && auth.uid) {
-      if (
-        event === "Approved" ||
-        event === "Completed" ||
-        event === "Rejected"
-      ) {
-        if (auth.uid !== doctorId) {
-          return res.status(403).json({
-            ok: false,
-            error: "Only the appointment doctor can trigger this notify.",
-          });
-        }
-      } else if (event === "Rated") {
-        if (auth.uid !== patientId) {
-          return res.status(403).json({
-            ok: false,
-            error: "Only the appointment patient can trigger this notify.",
-          });
-        }
-      }
+  
+  if (auth.via === "id_token" && auth.uid) {
+  if (event === "Booked") {
+    // only the patient who booked
+    if (auth.uid !== patientId) {
+      return res.status(403).json({
+        ok: false,
+        error: "Only the appointment patient can trigger this notify.",
+      });
     }
+  } else if (
+    event === "Approved" ||
+    event === "Completed" ||
+    event === "Rejected"
+  ) {
+    if (auth.uid !== doctorId) {
+      return res.status(403).json({
+        ok: false,
+        error: "Only the appointment doctor can trigger this notify.",
+      });
+    }
+  } else if (event === "Rated") {
+    if (auth.uid !== patientId) {
+      return res.status(403).json({
+        ok: false,
+        error: "Only the appointment patient can trigger this notify.",
+      });
+    }
+  }
+}
 
     const result = await sendNotifyForEvent({
       event,
